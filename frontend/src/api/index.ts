@@ -49,4 +49,36 @@ export const api = {
   currencies: {
     list: () => client.get<Currency[]>("/currencies"),
   },
+
+  export: {
+    debtsCSV: () =>
+      client.get("/export/debts", { responseType: "blob" }),
+    personPDF: (personId: number) =>
+      client.get(`/export/persons/${personId}/pdf`, { responseType: "blob" }),
+  },
+
+  import: {
+    preview: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return client.post<{
+        column_mapping: Record<string, string>;
+        detected_headers: string[];
+        sample_rows: Record<string, string>[];
+        total_rows: number;
+        errors: string[];
+      }>("/import/debts/preview", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    },
+    confirm: (fileB64: string, columnMapping: Record<string, string>) =>
+      client.post<{
+        created_persons: number;
+        created_transactions: number;
+        errors: string[];
+      }>("/import/debts/confirm", {
+        file_b64: fileB64,
+        column_mapping: columnMapping,
+      }),
+  },
 };

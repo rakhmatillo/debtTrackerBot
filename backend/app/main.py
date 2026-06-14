@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, currencies, persons, summary, transactions
+from app.api.routes import auth, currencies, export_import, persons, summary, transactions
 from app.core.config import settings
 
 
@@ -31,6 +31,7 @@ app.include_router(persons.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api")
 app.include_router(summary.router, prefix="/api")
 app.include_router(currencies.router, prefix="/api")
+app.include_router(export_import.router, prefix="/api")
 
 
 @app.get("/health")
