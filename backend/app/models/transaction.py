@@ -4,7 +4,7 @@ from enum import Enum as PyEnum
 from typing import Optional
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -36,6 +36,6 @@ class Transaction(Base):
     children: Mapped[list["Transaction"]] = relationship(
         "Transaction",
         foreign_keys=[parent_id],
-        backref="parent",
+        backref=backref("parent", remote_side="Transaction.id"),
         cascade="all, delete-orphan",
     )
