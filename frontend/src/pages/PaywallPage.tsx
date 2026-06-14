@@ -2,9 +2,9 @@ import WebApp from "@twa-dev/sdk";
 
 export default function PaywallPage() {
   const handlePay = () => {
-    WebApp.showAlert(
-      "Send a message to the bot to get payment details and continue your subscription."
-    );
+    // Close the Mini App — user lands back in the bot chat where they can
+    // get payment details and send their receipt.
+    WebApp.close();
   };
 
   return (
@@ -14,15 +14,18 @@ export default function PaywallPage() {
         Trial Ended
       </h1>
       <p className="text-sm mb-6" style={{ color: "var(--tg-theme-hint-color)" }}>
-        Your 7-day free trial has expired. Subscribe to continue tracking your
-        debts.
+        Your 7-day free trial has expired. To continue, pay and send your
+        receipt to the bot — the admin will activate your account manually.
       </p>
       <button
         onClick={handlePay}
-        className="w-full max-w-xs py-3 rounded-xl font-semibold text-white"
-        style={{ backgroundColor: "var(--tg-theme-button-color)", color: "var(--tg-theme-button-text-color)" }}
+        className="w-full max-w-xs py-3 rounded-xl font-semibold"
+        style={{
+          backgroundColor: "var(--tg-theme-button-color)",
+          color: "var(--tg-theme-button-text-color)",
+        }}
       >
-        Pay to Continue
+        Go to Bot → Pay &amp; Send Receipt
       </button>
     </div>
   );

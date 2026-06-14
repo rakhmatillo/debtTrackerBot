@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import ContextTypes
 
 from app.core.config import settings
@@ -121,6 +121,99 @@ async def admin_confirm_payment(update: Update, context: ContextTypes.DEFAULT_TY
             f"🎉 *Payment confirmed!*\n\n"
             f"Your access has been extended until *{expiry_str}*.\n"
             f"Thank you for subscribing!"
+        ),
+        parse_mode="Markdown",
+    )
+
+
+# ── Inline button: ✅ Confirm / ❌ Reject (from receipt forwarding) ───────────
+
+async def inline_confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Fired when admin taps [✅ Confirm 30 days] on a forwarded receipt.
+    callback_data format: admin_confirm:<tg_id>:<days>
+    """
+    query = update.callback_query
+    if query.from_user.id != settings.ADMIN_TELEGRAM_ID:
+        await query.answer("Not authorised.", show_alert=True)
+        return
+
+    await query.answer()
+
+    _, tg_id_str, days_str = query.data.split(":")
+    tg_id = int(tg_id_str)
+    days = int(days_str)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.telegram_id == tg_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            await query.edit_message_caption(
+                caption=query.message.caption + "\n\n❌ User not found in DB.",
+                parse_mode="Markdown",
+            )
+            return
+
+        now = datetime.now(timezone.utc)
+        base = max(user.paid_until or now, now)
+        user.paid_until = base + timedelta(days=days)
+        user.status = UserStatus.paid
+        await db.commit()
+        expiry_str = user.paid_until.strftime("%B %d, %Y")
+
+    # Update the admin message so the button disappears
+    updated_caption = (
+        query.message.caption
+        + f"\n\n✅ *Confirmed* — access extended until {expiry_str}"
+    )
+    try:
+        await query.edit_message_caption(caption=updated_caption, parse_mode="Markdown")
+    except Exception:
+        pass
+
+    # Notify the user
+    await context.bot.send_message(
+        chat_id=tg_id,
+        text=(
+            f"🎉 *Payment confirmed!*\n\n"
+            f"Your access has been extended until *{expiry_str}*.\n"
+            f"Tap the button below to open the app."
+        ),
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                "Open Debt Tracker",
+                web_app=WebAppInfo(url=settings.MINI_APP_URL),
+            )]
+        ]),
+    )
+
+
+async def inline_reject_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Fired when admin taps [❌ Reject] on a forwarded receipt.
+    callback_data format: admin_reject:<tg_id>
+    """
+    query = update.callback_query
+    if query.from_user.id != settings.ADMIN_TELEGRAM_ID:
+        await query.answer("Not authorised.", show_alert=True)
+        return
+
+    await query.answer()
+
+    tg_id = int(query.data.split(":")[1])
+
+    updated_caption = query.message.caption + "\n\n❌ *Rejected* by admin."
+    try:
+        await query.edit_message_caption(caption=updated_caption, parse_mode="Markdown")
+    except Exception:
+        pass
+
+    await context.bot.send_message(
+        chat_id=tg_id,
+        text=(
+            "❌ *Your receipt was not accepted.*\n\n"
+            "Please make sure you sent a valid payment receipt, or contact the admin for help."
         ),
         parse_mode="Markdown",
     )

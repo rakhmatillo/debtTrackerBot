@@ -7,11 +7,17 @@ from app.core.config import settings
 
 
 async def payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handles the 'Pay to Continue' button — sends payment details to user."""
+    """Handles the 'Pay to Continue' button — sends payment details then instructs user to send receipt."""
     query = update.callback_query
     await query.answer()
 
     chat_id = query.message.chat_id
+
+    receipt_instruction = (
+        "\n\n📎 *After paying:*\n"
+        "Send a screenshot or photo of your payment receipt *right here* in this chat.\n"
+        "The admin will review it and activate your account manually — usually within a few hours."
+    )
 
     if settings.PAYMENT_QR_PATH and os.path.exists(settings.PAYMENT_QR_PATH):
         with open(settings.PAYMENT_QR_PATH, "rb") as qr_file:
@@ -20,8 +26,8 @@ async def payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 photo=qr_file,
                 caption=(
                     "💳 *Payment Details*\n\n"
-                    "Scan the QR code above to complete your payment.\n"
-                    "Once paid, contact the admin and your access will be extended within 24 hours."
+                    "Scan the QR code above to complete your payment."
+                    + receipt_instruction
                 ),
                 parse_mode="Markdown",
             )
@@ -29,15 +35,19 @@ async def payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await context.bot.send_message(
             chat_id=chat_id,
             text=(
-                f"💳 *Payment Details*\n\n"
-                f"Use the link below to complete your payment:\n"
-                f"{settings.PAYMENT_LINK}\n\n"
-                f"Once paid, contact the admin and your access will be extended within 24 hours."
+                "💳 *Payment Details*\n\n"
+                f"Complete your payment via this link:\n{settings.PAYMENT_LINK}"
+                + receipt_instruction
             ),
             parse_mode="Markdown",
         )
     else:
         await context.bot.send_message(
             chat_id=chat_id,
-            text="Please contact the admin directly to arrange payment.",
+            text=(
+                "💳 *Payment*\n\n"
+                "Contact the admin to get payment details.\n"
+                + receipt_instruction
+            ),
+            parse_mode="Markdown",
         )

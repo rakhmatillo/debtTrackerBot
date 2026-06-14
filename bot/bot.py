@@ -4,7 +4,13 @@ import os
 import sys
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -14,8 +20,11 @@ from bot.handlers.admin import (
     admin_stats,
     admin_suspend,
     admin_users,
+    inline_confirm_payment,
+    inline_reject_payment,
 )
 from bot.handlers.payment import payment_callback
+from bot.handlers.receipt import receipt_handler
 from bot.handlers.reminders import send_due_reminders, send_trial_expiry_warnings
 from bot.handlers.start import start
 
@@ -37,7 +46,17 @@ async def main() -> None:
     app.add_handler(CommandHandler("stats", admin_stats))
 
     # ── Callback query handlers ────────────────────────────────────────────────
+    # User-facing: "Pay to Continue" button
     app.add_handler(CallbackQueryHandler(payment_callback, pattern="^request_payment$"))
+    # Admin-facing: receipt approve / reject buttons
+    app.add_handler(CallbackQueryHandler(inline_confirm_payment, pattern=r"^admin_confirm:\d+:\d+$"))
+    app.add_handler(CallbackQueryHandler(inline_reject_payment, pattern=r"^admin_reject:\d+$"))
+
+    # ── Receipt message handler ────────────────────────────────────────────────
+    # Catches photo or document sent by expired users and forwards to admin
+    app.add_handler(
+        MessageHandler(filters.PHOTO | filters.Document.ALL, receipt_handler)
+    )
 
     # ── Background scheduler ───────────────────────────────────────────────────
     scheduler = AsyncIOScheduler()
