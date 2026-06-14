@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -64,3 +65,9 @@ async def telegram_webhook(request: Request):
     update = Update.de_json(data, bot_app.bot)
     await bot_app.process_update(update)
     return JSONResponse({"ok": True})
+
+
+# Mount the React SPA at "/" — must come AFTER all API routes so it doesn't shadow them.
+# html=True makes FastAPI serve index.html for any path not matched above (SPA routing).
+_dist_path = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+app.mount("/", StaticFiles(directory=_dist_path, html=True), name="frontend")
