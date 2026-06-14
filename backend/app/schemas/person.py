@@ -48,6 +48,7 @@ class PersonOut(BaseModel):
     reminder_at: Optional[datetime]
     created_at: datetime
     balances: list[BalanceEntry] = []
+    transactions: list = []  # list[TransactionOut] — populated on detail fetch
 
     model_config = {"from_attributes": True}
 

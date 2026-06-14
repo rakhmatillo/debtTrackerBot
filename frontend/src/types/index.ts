@@ -37,6 +37,7 @@ export interface Person {
   reminder_at: string | null;
   created_at: string;
   balances: BalanceEntry[];
+  transactions: Transaction[];
 }
 
 export interface Currency {

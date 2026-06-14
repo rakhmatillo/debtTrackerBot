@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.models.person import Person
 from app.models.transaction import Transaction, TransactionType
 from app.schemas.person import BalanceEntry, PersonCreate, PersonOut, PersonUpdate
+from app.schemas.transaction import TransactionOut
 
 
 def _compute_balances(transactions: list[Transaction]) -> list[BalanceEntry]:
@@ -27,8 +28,28 @@ def _compute_balances(transactions: list[Transaction]) -> list[BalanceEntry]:
     return [BalanceEntry(currency=k, net=v) for k, v in net.items() if v != 0]
 
 
-def _to_out(person: Person) -> PersonOut:
+def _txn_to_out(txn: Transaction) -> TransactionOut:
+    return TransactionOut(
+        id=txn.id,
+        person_id=txn.person_id,
+        type=txn.type,
+        amount=txn.amount,
+        currency=txn.currency,
+        note=txn.note,
+        date=txn.date,
+        parent_id=txn.parent_id,
+        created_at=txn.created_at,
+        children=[_txn_to_out(c) for c in sorted(txn.children, key=lambda c: c.date)],
+    )
+
+
+def _to_out(person: Person, include_transactions: bool = True) -> PersonOut:
     balances = _compute_balances(person.transactions)
+    top_level = sorted(
+        [t for t in person.transactions if t.parent_id is None],
+        key=lambda t: t.date,
+        reverse=True,
+    )
     return PersonOut(
         id=person.id,
         name=person.name,
@@ -37,6 +58,7 @@ def _to_out(person: Person) -> PersonOut:
         reminder_at=person.reminder_at,
         created_at=person.created_at,
         balances=balances,
+        transactions=[_txn_to_out(t) for t in top_level] if include_transactions else [],
     )
 
 
