@@ -35,50 +35,73 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def main() -> None:
+def build_application() -> Application:
     app = Application.builder().token(settings.BOT_TOKEN).build()
 
-    # ── Command handlers ───────────────────────────────────────────────────────
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("admin_users", admin_users))
     app.add_handler(CommandHandler("suspend", admin_suspend))
     app.add_handler(CommandHandler("confirm_payment", admin_confirm_payment))
     app.add_handler(CommandHandler("stats", admin_stats))
 
-    # ── Callback query handlers ────────────────────────────────────────────────
-    # User-facing: "Pay to Continue" button
     app.add_handler(CallbackQueryHandler(payment_callback, pattern="^request_payment$"))
-    # Admin-facing: receipt approve / reject buttons
     app.add_handler(CallbackQueryHandler(inline_confirm_payment, pattern=r"^admin_confirm:\d+:\d+$"))
     app.add_handler(CallbackQueryHandler(inline_reject_payment, pattern=r"^admin_reject:\d+$"))
 
-    # ── Receipt message handler ────────────────────────────────────────────────
-    # Catches photo or document sent by expired users and forwards to admin
-    app.add_handler(
-        MessageHandler(filters.PHOTO | filters.Document.ALL, receipt_handler)
-    )
+    app.add_handler(MessageHandler(filters.PHOTO | filters.Document.ALL, receipt_handler))
 
-    # ── Background scheduler ───────────────────────────────────────────────────
+    return app
+
+
+def _add_scheduler(app: Application) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        send_due_reminders,
-        "interval",
-        minutes=1,
-        args=[app.bot],
-        id="reminders",
-    )
-    scheduler.add_job(
-        send_trial_expiry_warnings,
-        "interval",
-        hours=12,
-        args=[app.bot],
-        id="trial_warnings",
-    )
-    scheduler.start()
+    scheduler.add_job(send_due_reminders, "interval", minutes=1, args=[app.bot], id="reminders")
+    scheduler.add_job(send_trial_expiry_warnings, "interval", hours=12, args=[app.bot], id="trial_warnings")
+    return scheduler
 
-    logger.info("Bot starting…")
+
+# ── Polling mode (development) ────────────────────────────────────────────────
+
+async def run_polling() -> None:
+    app = build_application()
+    scheduler = _add_scheduler(app)
+    scheduler.start()
+    logger.info("Bot running in POLLING mode…")
     await app.run_polling(drop_pending_updates=True)
 
 
+# ── Webhook mode (production) — called from FastAPI lifespan ─────────────────
+
+_app_instance: Application | None = None
+_scheduler_instance: AsyncIOScheduler | None = None
+
+
+async def start_webhook_app() -> Application:
+    global _app_instance, _scheduler_instance
+    _app_instance = build_application()
+    await _app_instance.initialize()
+    await _app_instance.start()
+    _scheduler_instance = _add_scheduler(_app_instance)
+    _scheduler_instance.start()
+    logger.info("Bot application started (webhook mode)")
+    return _app_instance
+
+
+async def stop_webhook_app() -> None:
+    global _app_instance, _scheduler_instance
+    if _scheduler_instance:
+        _scheduler_instance.shutdown(wait=False)
+    if _app_instance:
+        await _app_instance.stop()
+        await _app_instance.shutdown()
+    logger.info("Bot application stopped")
+
+
+def get_app() -> Application:
+    if _app_instance is None:
+        raise RuntimeError("Bot application not started")
+    return _app_instance
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(run_polling())

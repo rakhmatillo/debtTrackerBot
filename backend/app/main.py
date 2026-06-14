@@ -1,7 +1,12 @@
+import sys
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from app.api.routes import auth, currencies, export_import, persons, summary, transactions
 from app.core.config import settings
@@ -9,7 +14,13 @@ from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
+    if settings.ENVIRONMENT == "production":
+        from bot.bot import start_webhook_app, stop_webhook_app
+        await start_webhook_app()
+        yield
+        await stop_webhook_app()
+    else:
+        yield
 
 
 app = FastAPI(
@@ -37,3 +48,19 @@ app.include_router(export_import.router, prefix="/api")
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    """Receives Telegram updates in production (webhook mode)."""
+    if settings.ENVIRONMENT != "production":
+        return JSONResponse({"ok": False, "error": "Webhook only active in production"}, status_code=400)
+
+    from telegram import Update
+    from bot.bot import get_app
+
+    data = await request.json()
+    bot_app = get_app()
+    update = Update.de_json(data, bot_app.bot)
+    await bot_app.process_update(update)
+    return JSONResponse({"ok": True})

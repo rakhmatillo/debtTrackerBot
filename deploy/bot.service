@@ -1,0 +1,15 @@
+[Unit]
+Description=DebtTracker Telegram Bot
+After=network.target postgresql.service debttracker-backend.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/debttracker
+EnvironmentFile=/var/www/debttracker/.env
+ExecStart=/var/www/debttracker/venv/bin/python bot/bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
