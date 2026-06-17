@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, JSON
@@ -17,7 +17,7 @@ class Person(Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     reminder_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     user: Mapped["User"] = relationship("User", back_populates="persons")  # noqa: F821

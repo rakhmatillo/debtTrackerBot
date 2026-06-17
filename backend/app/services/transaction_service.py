@@ -25,6 +25,17 @@ def _to_out(txn: Transaction) -> TransactionOut:
     )
 
 
+async def _refetch_txn(db: AsyncSession, txn_id: int) -> Transaction:
+    """Re-fetch a transaction with children eagerly loaded after a commit."""
+    stmt = (
+        select(Transaction)
+        .where(Transaction.id == txn_id)
+        .options(selectinload(Transaction.children))
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
 class TransactionService:
     @staticmethod
     async def create_transaction(
@@ -63,8 +74,7 @@ class TransactionService:
         )
         db.add(txn)
         await db.commit()
-        await db.refresh(txn)
-        txn.children = []
+        txn = await _refetch_txn(db, txn.id)
         return _to_out(txn)
 
     @staticmethod
@@ -72,9 +82,7 @@ class TransactionService:
         db: AsyncSession, user_id: int, txn_id: int, data: TransactionUpdate
     ) -> Optional[TransactionOut]:
         result = await db.execute(
-            select(Transaction)
-            .where(Transaction.id == txn_id, Transaction.user_id == user_id)
-            .options(selectinload(Transaction.children))
+            select(Transaction).where(Transaction.id == txn_id, Transaction.user_id == user_id)
         )
         txn = result.scalar_one_or_none()
         if not txn:
@@ -88,7 +96,7 @@ class TransactionService:
         if data.date is not None:
             txn.date = data.date
         await db.commit()
-        await db.refresh(txn)
+        txn = await _refetch_txn(db, txn_id)
         return _to_out(txn)
 
     @staticmethod

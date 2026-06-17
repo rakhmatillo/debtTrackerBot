@@ -13,17 +13,20 @@ from app.models.user import User, UserStatus
 async def send_due_reminders(bot) -> None:
     """Called every minute by APScheduler. Sends reminder notifications."""
     now = datetime.now(timezone.utc)
-    window_end = now + timedelta(minutes=1)
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(Person)
-            .where(Person.reminder_at >= now, Person.reminder_at < window_end, Person.is_archived == False)  # noqa: E712
+            .where(Person.reminder_at <= now, Person.is_archived == False)  # noqa: E712
             .options(selectinload(Person.user))
+            .limit(200)
         )
         persons = result.scalars().all()
 
         for person in persons:
+            # Clear before attempting send so a failed delivery (blocked bot, rate
+            # limit, stale chat ID) doesn't re-fire every minute indefinitely.
+            person.reminder_at = None
             try:
                 await bot.send_message(
                     chat_id=person.user.telegram_id,
@@ -34,7 +37,6 @@ async def send_due_reminders(bot) -> None:
                     ),
                     parse_mode="Markdown",
                 )
-                person.reminder_at = None
             except Exception:
                 pass
 

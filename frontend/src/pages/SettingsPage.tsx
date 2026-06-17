@@ -7,7 +7,8 @@ import { formatDate } from "../utils/format";
 import BottomSheet from "../components/BottomSheet";
 
 export default function SettingsPage() {
-  const { user } = useUser();
+  const { user, loading } = useUser();
+  if (loading) return null;
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [importStep, setImportStep] = useState<"idle" | "preview" | "confirm" | "done">("idle");

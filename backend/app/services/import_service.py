@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.person import Person
@@ -122,8 +123,15 @@ async def commit_import(
     rows = list(reader)
 
     result = ImportResult()
-    person_cache: dict[str, Person] = {}
     txn_id_map: dict[str, int] = {}  # csv transaction_id → real DB id
+
+    # Pre-load existing persons for this user (case-insensitive key)
+    existing = await db.execute(
+        select(Person).where(Person.user_id == user_id)
+    )
+    person_cache: dict[str, Person] = {
+        p.name.lower(): p for p in existing.scalars().all()
+    }
 
     def get(row: dict, field_name: str, default: str = "") -> str:
         col = column_mapping.get(field_name)
@@ -163,7 +171,7 @@ async def commit_import(
         csv_txn_id = get(row, "transaction_id")
         csv_parent_id = get(row, "parent_id")
 
-        # Resolve or create person
+        # Resolve or create person (deduplicates against existing DB rows)
         key = person_name.lower()
         if key not in person_cache:
             person = Person(
@@ -177,8 +185,9 @@ async def commit_import(
             result.created_persons += 1
         else:
             person = person_cache[key]
-            if currency not in person.currencies and len(person.currencies) < 3:
-                person.currencies = person.currencies + [currency]
+            existing_currencies = person.currencies or []
+            if currency not in existing_currencies and len(existing_currencies) < 3:
+                person.currencies = existing_currencies + [currency]
 
         # Resolve parent
         db_parent_id: Optional[int] = None

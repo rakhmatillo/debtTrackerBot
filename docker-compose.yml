@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: debttracker
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -21,6 +21,10 @@ services:
     depends_on:
       - db
     env_file: .env
+    environment:
+      # Intentionally overrides DATABASE_URL from .env — containers must use the
+      # service name "db", not "localhost". Do not set DATABASE_URL in .env for Docker.
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/debttracker
     ports:
       - "8000:8000"
     volumes:
@@ -35,6 +39,9 @@ services:
       - db
       - backend
     env_file: .env
+    environment:
+      # See backend service comment — intentional override for Docker networking.
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/debttracker
     command: python /app/bot/bot.py
     volumes:
       - ./backend:/app

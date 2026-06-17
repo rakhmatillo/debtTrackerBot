@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import WebApp from "@twa-dev/sdk";
 import { useNavigate } from "react-router-dom";
 
@@ -16,18 +16,24 @@ export function useBackButton(to?: string) {
 }
 
 export function useMainButton(label: string, onClick: () => void, enabled = true) {
+  const onClickRef = useRef(onClick);
+  onClickRef.current = onClick;
+
+  // Register handler once on mount — prevents listener accumulation when onClick ref changes
+  useEffect(() => {
+    const handler = () => onClickRef.current();
+    WebApp.MainButton.onClick(handler);
+    return () => {
+      WebApp.MainButton.offClick(handler);
+      WebApp.MainButton.hide();
+    };
+  }, []);
+
+  // Update label and enabled state separately
   useEffect(() => {
     WebApp.MainButton.setText(label);
     WebApp.MainButton.show();
-    if (enabled) {
-      WebApp.MainButton.enable();
-    } else {
-      WebApp.MainButton.disable();
-    }
-    WebApp.MainButton.onClick(onClick);
-    return () => {
-      WebApp.MainButton.offClick(onClick);
-      WebApp.MainButton.hide();
-    };
-  }, [label, onClick, enabled]);
+    if (enabled) WebApp.MainButton.enable();
+    else WebApp.MainButton.disable();
+  }, [label, enabled]);
 }

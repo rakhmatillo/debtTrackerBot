@@ -62,13 +62,29 @@ def _to_out(person: Person, include_transactions: bool = True) -> PersonOut:
     )
 
 
+def _with_txns() -> list:
+    """Standard selectinload options for person queries that need transactions."""
+    return [selectinload(Person.transactions).selectinload(Transaction.children)]
+
+
+async def _refetch_person(db: AsyncSession, person_id: int) -> Person:
+    """Re-fetch a person with transactions eagerly loaded after a commit."""
+    stmt = (
+        select(Person)
+        .where(Person.id == person_id)
+        .options(*_with_txns())
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
+
+
 class PersonService:
     @staticmethod
     async def list_persons(db: AsyncSession, user_id: int, archived: bool = False) -> list[PersonOut]:
         stmt = (
             select(Person)
             .where(Person.user_id == user_id, Person.is_archived == archived)
-            .options(selectinload(Person.transactions).selectinload(Transaction.children))
+            .options(*_with_txns())
             .order_by(Person.name)
         )
         result = await db.execute(stmt)
@@ -79,7 +95,7 @@ class PersonService:
         stmt = (
             select(Person)
             .where(Person.id == person_id, Person.user_id == user_id)
-            .options(selectinload(Person.transactions).selectinload(Transaction.children))
+            .options(*_with_txns())
         )
         result = await db.execute(stmt)
         person = result.scalar_one_or_none()
@@ -90,8 +106,7 @@ class PersonService:
         person = Person(user_id=user_id, name=data.name, currencies=data.currencies)
         db.add(person)
         await db.commit()
-        await db.refresh(person)
-        person.transactions = []
+        person = await _refetch_person(db, person.id)
         return _to_out(person)
 
     @staticmethod
@@ -101,7 +116,6 @@ class PersonService:
         stmt = (
             select(Person)
             .where(Person.id == person_id, Person.user_id == user_id)
-            .options(selectinload(Person.transactions).selectinload(Transaction.children))
         )
         result = await db.execute(stmt)
         person = result.scalar_one_or_none()
@@ -112,7 +126,7 @@ class PersonService:
         if data.currencies is not None:
             person.currencies = data.currencies
         await db.commit()
-        await db.refresh(person)
+        person = await _refetch_person(db, person_id)
         return _to_out(person)
 
     @staticmethod
@@ -129,12 +143,9 @@ class PersonService:
 
     @staticmethod
     async def toggle_archive(db: AsyncSession, user_id: int, person_id: int) -> Optional[PersonOut]:
-        stmt = (
-            select(Person)
-            .where(Person.id == person_id, Person.user_id == user_id)
-            .options(selectinload(Person.transactions).selectinload(Transaction.children))
+        result = await db.execute(
+            select(Person).where(Person.id == person_id, Person.user_id == user_id)
         )
-        result = await db.execute(stmt)
         person = result.scalar_one_or_none()
         if not person:
             return None
@@ -142,23 +153,20 @@ class PersonService:
         if person.is_archived:
             person.reminder_at = None
         await db.commit()
-        await db.refresh(person)
+        person = await _refetch_person(db, person_id)
         return _to_out(person)
 
     @staticmethod
     async def set_reminder(
         db: AsyncSession, user_id: int, person_id: int, reminder_at: Optional[datetime]
     ) -> Optional[PersonOut]:
-        stmt = (
-            select(Person)
-            .where(Person.id == person_id, Person.user_id == user_id)
-            .options(selectinload(Person.transactions).selectinload(Transaction.children))
+        result = await db.execute(
+            select(Person).where(Person.id == person_id, Person.user_id == user_id)
         )
-        result = await db.execute(stmt)
         person = result.scalar_one_or_none()
         if not person:
             return None
         person.reminder_at = reminder_at
         await db.commit()
-        await db.refresh(person)
+        person = await _refetch_person(db, person_id)
         return _to_out(person)

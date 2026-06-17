@@ -70,7 +70,7 @@ def build_application() -> Application:
 
     # Background jobs via PTB's built-in job queue (no separate event loop needed)
     app.job_queue.run_repeating(_reminders_job, interval=60, first=10)
-    app.job_queue.run_repeating(_trial_warnings_job, interval=43200, first=120)
+    app.job_queue.run_repeating(_trial_warnings_job, interval=86400, first=120)
 
     return app
 

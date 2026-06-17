@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum as PyEnum
 from typing import Optional
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -29,13 +29,19 @@ class Transaction(Base):
         Integer, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     person: Mapped["Person"] = relationship("Person", back_populates="transactions")  # noqa: F821
     children: Mapped[list["Transaction"]] = relationship(
         "Transaction",
         foreign_keys=[parent_id],
-        backref=backref("parent", remote_side="Transaction.id"),
+        back_populates="parent",
         cascade="all, delete-orphan",
+    )
+    parent: Mapped[Optional["Transaction"]] = relationship(
+        "Transaction",
+        foreign_keys=[parent_id],
+        back_populates="children",
+        remote_side=[id],
     )

@@ -67,7 +67,8 @@ async def telegram_webhook(request: Request):
     return JSONResponse({"ok": True})
 
 
-# Mount the React SPA at "/" — must come AFTER all API routes so it doesn't shadow them.
-# html=True makes FastAPI serve index.html for any path not matched above (SPA routing).
+# Mount the React SPA at "/" only when running outside Docker (single-process dev mode).
+# In Docker, nginx serves the frontend and proxies /api/ to this backend.
 _dist_path = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
-app.mount("/", StaticFiles(directory=_dist_path, html=True), name="frontend")
+if os.path.isdir(_dist_path):
+    app.mount("/", StaticFiles(directory=_dist_path, html=True), name="frontend")
