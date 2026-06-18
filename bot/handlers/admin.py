@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 
 from sqlalchemy import select
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
@@ -161,13 +161,16 @@ async def inline_confirm_payment(update: Update, context: ContextTypes.DEFAULT_T
         await db.commit()
         expiry_str = user.paid_until.strftime("%B %d, %Y")
 
-    # Update the admin message so the button disappears
     updated_caption = (
         query.message.caption
         + f"\n\n✅ *Confirmed* — access extended until {expiry_str}"
     )
     try:
-        await query.edit_message_caption(caption=updated_caption, parse_mode="Markdown")
+        await query.edit_message_caption(
+            caption=updated_caption,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([]),
+        )
     except Exception:
         pass
 
@@ -205,7 +208,11 @@ async def inline_reject_payment(update: Update, context: ContextTypes.DEFAULT_TY
 
     updated_caption = query.message.caption + "\n\n❌ *Rejected* by admin."
     try:
-        await query.edit_message_caption(caption=updated_caption, parse_mode="Markdown")
+        await query.edit_message_caption(
+            caption=updated_caption,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([]),
+        )
     except Exception:
         pass
 
@@ -253,4 +260,60 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"Paid & active: {paid}\n"
         f"Suspended: {suspended}",
         parse_mode="Markdown",
+    )
+
+
+# ── /set_access <user_id> <YYYY-MM-DD> ───────────────────────────────────────
+
+async def admin_set_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Set a custom expiry date for a user. Usage: /set_access <telegram_id> <YYYY-MM-DD>"""
+    if not _is_admin(update):
+        return
+
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text("Usage: /set_access <telegram_id> <YYYY-MM-DD>\nExample: /set_access 123456789 2026-12-31")
+        return
+
+    try:
+        tg_id = int(args[0])
+        expiry_date = datetime.strptime(args[1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        await update.message.reply_text("Invalid arguments. Date must be in YYYY-MM-DD format.")
+        return
+
+    if expiry_date <= datetime.now(timezone.utc):
+        await update.message.reply_text("❌ Expiry date must be in the future.")
+        return
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.telegram_id == tg_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            await update.message.reply_text("User not found.")
+            return
+
+        user.paid_until = expiry_date
+        user.status = UserStatus.paid
+        await db.commit()
+        expiry_str = expiry_date.strftime("%B %d, %Y")
+
+    await update.message.reply_text(
+        f"✅ Access set for user `{tg_id}` until *{expiry_str}*.",
+        parse_mode="Markdown",
+    )
+    await context.bot.send_message(
+        chat_id=tg_id,
+        text=(
+            f"🎉 *Your access has been activated!*\n\n"
+            f"You have access until *{expiry_str}*.\n"
+            f"Tap the button below to open the app."
+        ),
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                "Open Debt Tracker",
+                web_app=WebAppInfo(url=settings.MINI_APP_URL),
+            )]
+        ]),
     )

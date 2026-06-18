@@ -20,6 +20,7 @@ sys.path.insert(0, _bot_dir)  # makes 'handlers' importable directly
 from app.core.config import settings
 from handlers.admin import (
     admin_confirm_payment,
+    admin_set_access,
     admin_stats,
     admin_suspend,
     admin_users,
@@ -59,6 +60,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("suspend", admin_suspend))
     app.add_handler(CommandHandler("confirm_payment", admin_confirm_payment))
     app.add_handler(CommandHandler("stats", admin_stats))
+    app.add_handler(CommandHandler("set_access", admin_set_access))
 
     # Callback queries
     app.add_handler(CallbackQueryHandler(payment_callback, pattern="^request_payment$"))
