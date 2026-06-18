@@ -16,10 +16,22 @@ async def payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     receipt_instruction = (
         "\n\n📎 *After paying:*\n"
         "Send a screenshot or photo of your payment receipt *right here* in this chat.\n"
-        "The admin will review it and activate your account manually — usually within a few hours."
+        "The admin will review it and activate your account — usually within a few hours."
     )
 
-    if settings.PAYMENT_QR_PATH and os.path.exists(settings.PAYMENT_QR_PATH):
+    if settings.PAYMENT_CARD:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "💳 *Payment Details*\n\n"
+                f"Transfer to this card number:\n\n"
+                f"`{settings.PAYMENT_CARD}`\n\n"
+                "_(tap the number to copy it)_"
+                + receipt_instruction
+            ),
+            parse_mode="Markdown",
+        )
+    elif settings.PAYMENT_QR_PATH and os.path.exists(settings.PAYMENT_QR_PATH):
         with open(settings.PAYMENT_QR_PATH, "rb") as qr_file:
             await context.bot.send_photo(
                 chat_id=chat_id,

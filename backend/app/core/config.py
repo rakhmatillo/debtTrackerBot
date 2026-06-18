@@ -20,6 +20,7 @@ class Settings:
     MINI_APP_URL: str = os.getenv("MINI_APP_URL", "")
     PAYMENT_LINK: str = os.getenv("PAYMENT_LINK", "")
     PAYMENT_QR_PATH: str = os.getenv("PAYMENT_QR_PATH", "")
+    PAYMENT_CARD: str = os.getenv("PAYMENT_CARD", "")
     TRIAL_DAYS: int = int(os.getenv("TRIAL_DAYS", "7"))
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
