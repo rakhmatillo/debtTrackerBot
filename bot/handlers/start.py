@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -74,10 +75,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     )]
                 ])
                 if trial_active:
-                    days_left = (user.trial_end - now).days + 1
+                    days_left = math.ceil((user.trial_end - now).total_seconds() / 86400)
                     status_line = f"⏳ Free trial — *{days_left} day(s) remaining*"
                 else:
-                    days_left = (user.paid_until - now).days + 1
+                    days_left = math.ceil((user.paid_until - now).total_seconds() / 86400)
                     status_line = f"✅ Subscription active — *{days_left} day(s) remaining*"
 
                 await context.bot.send_message(
