@@ -1,0 +1,15 @@
+INFO:     127.0.0.1:59596 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59597 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64873 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64873 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55290 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55291 - "GET / HTTP/1.1" 200 OK
+INFO:     87.192.224.21:0 - "GET / HTTP/1.1" 200 OK
+INFO:     87.192.224.21:0 - "GET /api/currencies HTTP/1.1" 200 OK
+INFO:     87.192.224.21:0 - "GET / HTTP/1.1" 200 OK
+INFO:     87.192.224.21:0 - "GET /assets/index-CilNB_wN.css HTTP/1.1" 200 OK
+INFO:     87.192.224.21:0 - "GET /assets/index-DB651A-w.js HTTP/1.1" 200 OK
+INFO:     87.192.224.21:0 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     87.192.224.21:0 - "POST /api/auth/register HTTP/1.1" 500 Internal Server Error
+INFO:     87.192.224.21:0 - "POST /api/auth/register HTTP/1.1" 500 Internal Server Error
+INFO:     87.192.224.21:0 - "GET /favicon.ico HTTP/1.1" 404 Not Found
